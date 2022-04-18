@@ -1,0 +1,729 @@
+---
+title: 'Analysing US Mass Shootings and Mental Health Issue Associated to it'
+author: ''
+date: ''
+output:
+  html_document:
+    number_sections: true
+    toc: true
+    fig_width: 7
+    fig_height: 4.5
+    theme: cosmo
+    highlight: tango
+    code_folding: hide
+---
+
+# Things to know
+The topic is trending in the USA.
+There has been high intensity Mass Shootings in 2017.
+The analysis may provide information for debates on Immigration, gun laws, mental health issues and drug use.
+This analysis is limited to Mass Shootings, Other crimes like vehicles as weapons, assassination, homicide and bombings are not visualized.
+
+#Introduction
+In this Project, The USA mas shooting dataset is used to analyze information about the shooter with
+respect to Race, States, Causes and Targets.
+
+#Libraries
+The libraries used are
+```{r, warning=FALSE, message=FALSE}
+
+
+library(data.table) #Creating data frames
+library(shiny) #Creating a front end, but didn't use it here because the app works locally on my system. 
+library(lubridate) #For dates
+library(plotly) #For plots
+library(tidyverse) #To reshape data
+library(readr) # To read csv files
+library(tidyr) #To reshape data
+library("leaflet") #For Maps
+```
+
+#Data
+The dimensions and Head are shown below
+
+```{r, message=FALSE, warning=FALSE}
+
+#Formatting Date 
+Dateformat = cols(Date = col_date(format = "%m/%d/%Y"))
+
+#Reading Data
+Mass_Shootings_Dataset_Ver_5 <- read_csv("Mass Shootings Dataset Ver 5.csv"
+                              , col_types = Dateformat)
+
+#Allocating data to a Data Frame
+Crime <- data.table(Mass_Shootings_Dataset_Ver_5)
+
+#Dimensions of the dataset
+dim(Crime)
+
+#Headers of the dataset
+head(Crime)
+```
+
+#Pre-Processing Data.
+For detailed explanation check out my other work called Analysis based on Race, Gender, Cause and Targets.
+
+```{r}
+
+#Pre-processing Race
+Crime[Race=="unclear",Race:="Unknown"]
+Crime[is.na(Race),Race:="Other"]
+Crime[ Race=="black" | Race=="Black American or African American" | Race=="Black American or African American/Unknown",Race:="Black"]
+Crime[Race=="white" | Race=="White American or European American" | Race=="White American or European American/Some other Race" ,Race:="White"]
+Crime[Race=="Asian American"| Race=="Asian American/Some other race" ,Race:="Asian"]
+Crime[Race=="Unknown"|Race=="Two or more races" | Race=="Some other race",Race:="Other"]
+
+#Pre-processing Date
+Crime[,Month:=as.factor(month(Date))]
+Crime[,Day:=as.factor(day(Date))]
+Crime[,Year:=as.factor(year(Date))]
+
+#Pre-processing Gender
+Crime[Gender=='M',Gender:="Male"]
+Crime[Gender=='M/F',Gender:="Male/Female"]
+Crime[is.na(Gender),Gender:="Unknown"]
+
+#Pre-processing Cause
+Crime[is.na(Cause)|Cause=="unknown",Cause:="Unknown"]
+Crime[Cause=='domestic dispute'|Cause=='domestic disputer', Cause:='domestic dispute']
+Crime[Cause=="anger"|Cause=="frustration",Cause:="Anger and Fustration"]
+Crime[Cause=="failing exams" | Cause=="suspension", Cause:="Failing exams and suspension"]
+
+#Pre-processing Target
+Crime[is.na(Target),Target:="Unknown"]
+Crime[Target=='Family'|Target=='Family/Neighbors'|Target=='Family+students'|Target=='Coworkers'|Target=='coworkers'
+|Target=='Students+Parents'|Target=='Family+random'|Target=="partner's family"|Target=="Coworker's Family"
+|Target=='neighbors'|Target=='Girlfriend'|Target=="House Owner"
+|Target=="Friends",Target:="Family,Girlfriend(Relationships at that time)"]
+
+Crime[Target=='Children'|Target=='school girls'|Target=='Students'
+|Target=='Students+Teachers'|Target=='Teachers',Target:="School(Teachers or Students)"] 
+
+Crime[Target=='Ex-Girlfriend'|Target=='Ex-Wife & Family'|Target == 'Ex-Girlfriend & Family' |Target == 'Ex-GirlFriend'
+|Target=='Ex-Girlfriend+random'|Target=='Ex-girlfriend'|Target=="Ex-Coworkers"|Target=='Ex-Wife'|Target=='Ex-Girlfriend', Target:="Girlfriend/Wife/coworkers ( past relationships)"]
+
+Crime[Target=='Sikhs'|Target=='monks'|Target=='prayer group',Target:="Motives against religion"] 
+
+Crime[Target=="Marines"|Target=="Policeman+Council Member"| Target=="police"|
+Target=="Policeman"|Target=="Trooper"|Target=="Social Workers", Target:="Marines,Police and Social Workers(Police Brutality)"]
+
+Crime[Target=="birthday party bus"|Target=="party guests"|Target=="uninvited guests", Target:="Parties"]
+
+#Pre-processing Mental Health Issues
+Crime[`Mental Health Issues`=="unknown",`Mental Health Issues`:="Unknown"]
+
+#Pre-processing Age
+Crime[is.na(Age),Age:=0]
+NewAge <-
+sapply(Crime$Age,function(x){
+if(x>=10 && x<20){
+"10+ Teen" }
+else if(x>=20 && x<30){
+"20's"}
+else if(x>=30 && x<40){
+"30's"}
+else if(x>=40 && x<50){
+"40's"}
+else if(x>=50 && x<60){
+"50's"}
+else if(x>=60 && x<70){
+"60's"}
+else if(x>=70 && x<80){
+"70's"}
+else if(x>80){
+"Multiple Shooters"}
+else{
+"Age Unknown"}
+})
+
+#Pre-processing State
+Crime$State <- sapply(Crime$Location, function(parts)
+		{
+			temp <- strsplit(parts, split = ",")
+  			sapply(temp, function(new)
+				{	
+					new[2]
+    
+  				}
+			      )
+		})
+
+Crime$City <- sapply(Crime$Location, function(parts)
+		{
+			temp <- strsplit(parts, split = ",")
+  			sapply(temp, function(new)
+				{	
+					new[1]
+    
+  				}
+			      )
+		})
+
+Crime[is.na(`State`), `State`:="Unknown"]
+Crime[`State`==' CA'| `State`== ' San Diego'| `State`==" LA" |`State`== " California", `State`:="California"]
+Crime[`State`==' NV'| `State`==" Nevada",`State`:="Nevada"]
+Crime[`State`==' CO'| `State` == " Colorado",`State`:="Colorado"] 
+Crime[`State`=='  Virginia'|`State`==" Virginia",`State`:="Virginia"]
+Crime[`State`==" TX"| `State` == " Texas",`State`:="Texas"]
+Crime[`State`==" MD",`State`:="Maryland"]
+Crime[`State`==" PA"|`State`==" Lancaster"|`State`==" Souderton",`State`:="Pennsylvania"]
+Crime[`State`==" WA"|`State`==" Washington",`State`:="Washington"]
+
+
+#Preprocessing Map Data
+KnownLocations = Crime %>% drop_na(Latitude) %>% drop_na(Longitude)
+
+colmap <- colorFactor(topo.colors(9), Crime$Race)
+colgen <- colorFactor(topo.colors(6), Crime$Gender)
+
+```
+Data after preprocessing
+
+## Modified Gender, Race and Mental Health Issues
+```{r}
+
+table(Crime$Race)
+table(Crime$`Mental Health Issues`)
+table(Crime$Gender)
+
+```
+
+## Frequency in Day Month and Year
+```{r}
+
+table(Crime$Day)
+table(Crime$Month)
+table(Crime$Year)
+
+```
+
+## Modified Age and State
+```{r}
+
+table(NewAge)
+table(Crime$State)
+
+
+```
+
+## Modified Cause and Target columns
+```{r}
+
+table(Crime$Cause)
+
+table(Crime$Target)
+
+```
+#Plots with respect to Race
+
+## Incidents with respect to Race
+Key Notes:
+			1) People whose Race is white has the highest number of incidents - 144
+			2) People whose Race is Native American has the least incidents that is 3
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~Race
+        )%>% 
+  layout(title = "Number of incidents by Race"
+         , xaxis = list(title = "Race"))
+```
+
+### Races with Mental Health Issues
+Key Notes: 
+			1) 71 of the 144 white suspects have mental health problems
+			2) 30 of the 85 black suspects didnt have mental health issues
+			3) A lot of data related to people of other races is unknown 
+			
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~Race
+        ,color =~`Mental Health Issues`) %>% 
+layout(title = "Total incidents by Race with respect to Mental Health Issue"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "Race")
+         , legend = list(x = 0, y = 1)
+         , hovermode = 'compare')
+```
+
+### Map of Races
+The goal of this map is to visualize the race of the shooter in different states. For example
+the race of the shooter in Alaska is White and Hawaii is Asian. The circles indicate the intensity of 
+the shooting which in this case are Fatalities
+```{r, message=FALSE, warning=FALSE}
+  KnownLocations %>%
+                 leaflet() %>%
+                 addTiles() %>%
+                 addProviderTiles(providers$Esri.NatGeoWorldMap) %>%
+                 addCircles(color=~colmap(Race),lng = ~Longitude, lat = ~Latitude,radius = ~sqrt(`Fatalities`) *50000,label=~Race)
+```
+
+
+## Races with Gender
+Key notes: 1) Its mostly Men of all races that are suspects 
+ 
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~Race
+        ,color =~`Gender`) %>% 
+layout(title = "Total incidents by Race with respect to Gender"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "Race")
+         , legend = list(x = 0, y = 1)
+         , hovermode = 'compare')
+```
+
+### Scatter Map for Better UnderStanding
+ There are 4 incidents by white female shooters the last being on Feb 2010 in Huntsville Alabama
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+ ,type = 'scatter'
+ ,mode = 'markers' 
+ ,hoverinfo = 'text'
+ ,x = ~Gender
+ ,y = ~Year
+ ,size = ~`Fatalities`
+ ,text = ~paste(' Date: ', Date 
+                ,'\n Location : ', Location 
+		,'\n Total victims :', `Total victims`
+		,'\n Race :', `Race`
+                )) %>% 
+layout(title = "Mass Shootings in US by Gender"
+            , xaxis = list(title = "Gender")
+           , yaxis = list(title = "Year"))
+```
+
+### Gender Map
+This is a map to visualize the gender of the Shooter
+```{r}
+KnownLocations %>%
+leaflet() %>%
+addTiles() %>%
+addProviderTiles("OpenStreetMap.HOT") %>%
+addCircles(color=~colgen(Gender),lng = ~Longitude, lat = ~Latitude,radius = ~sqrt(`Fatalities`) * 45000,label=~Gender)
+```
+
+## Races with Age
+Key Notes: 
+1) 24 out of the 144 white shooters are teenagers
+2) 26 of the 144 white shooters are in their 20's  
+3) 21 of the 144 white shooters are in their 40's 
+
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~Race
+        ,color =~`NewAge`) %>% 
+  layout(title = "Total incidents by Race with respect to Age"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "Race")
+         , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+
+### Age Count
+145 shooters age is unknown
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`NewAge`)%>% 
+layout(title = "Number of incidents by Age"
+         , xaxis = list(title = "Age")
+         , yaxis = list(title = ""))
+```
+
+## Races with Cause and Target
+
+
+### Cause details
+1) 41 shooters of 144 white are psychos, 26 had anger issues and 27 were terrorists. 
+2)17 of the 80 Black shooters were terrorists, 18 had anger issues and 14 were psychos. 
+
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~Race
+        ,color =~`Cause`) %>% 
+layout(title = "Total incidents by Race with respect to Cause"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "Race")
+         , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+
+### Target Details
+1) 35 of the 144 white shooters targeted Family,Girlfriend and Coworkers 
+2) 24 of the white shooters targetted schools. 
+3) 140 incidents were random targets and 56 white, 40 black and 32 people of other races were involved
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~Target
+        ,color =~`Race`) %>% 
+layout(title = "Total incidents by Race with respect to Target"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "Race")
+         , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+
+#Analysis on State
+
+
+## Incidents Analysis in State
+
+### States with Incidents
+California, Texas and Florida have a high number of Mass Shootings, I think it's because there state have more polulation hence more shooters.
+Also these states have a coast or maybe it's the hot weather. (I dont know about the gun laws)
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`State`) %>% 
+layout(title = "Number of incidents by State"
+         , xaxis = list(title = "Year"))
+```
+
+### Victims in State
+Nevada is considered an Anomaly because without the Vegas Mass Shooting in 2017. 
+The state didn't have many incidents
+```{r}
+plot_ly(data = Crime[,.('Total victims'= sum(`Total victims`)),by=.(`State`)]
+        ,type = 'bar'
+        ,x = ~`State`
+        ,y = ~`Total victims`) %>% 
+layout(title = "Total victims by State"
+         , barmode = 'stack'
+         , xaxis = list(title = "State")
+         , yaxis = list(title = "Victims")
+         , legend = list(x = 0, y = 1)
+         , hovermode = 'compare')
+```
+
+### State Cluster Map
+This map shows clusters, As you zoom in you can break it down to states and cities.
+```{r}
+KnownLocations %>%
+                 leaflet() %>%
+                 addTiles() %>%
+                 addProviderTiles("OpenStreetMap.HOT")%>%
+                 addMarkers(lng = ~Longitude, lat = ~Latitude,clusterOptions = markerClusterOptions(), label=~Location) 
+```
+
+## State analyis based on Gender and Mental Health Issues
+
+### State with Gender
+California, Illinois and Alabama have female shooters. 
+Florida,California, Nevada and Washington have had multiple shooters
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`State`
+        ,color =~`Gender`) %>% 
+  layout(title = "Total incidents by State with respect to Gender"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "State")
+         , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+
+### State with Mental Health Issues
+California has the highest number of incidents with shooters having mental illness, followed by Washington.
+Reasons for Mental Health Issues according to me are, bullying in school, Living upto the standards of society, easy access to drugs which affects the brain's reward system, and social media (when people stop interacting with each other and lose touch with reality). 
+Washington because of the weather I guess.
+More details in the state causes and targets graphs
+Question -  How did they obtain guns?
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`State`
+        ,color =~`Mental Health Issues`) %>% 
+  layout(title = "Total incidents by State with respect to Mental Health"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "State")
+         , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+### Scatter map for Mental Health Issues
+```{r}
+plot_ly(data = Crime
+        ,type = 'scatter'
+        ,mode = 'markers' 
+        ,hoverinfo = 'text'
+        ,x = ~Year
+        ,y = ~State
+        ,size = ~`Total victims`
+        ,color = ~`Mental Health Issues`
+        ,colors = c('Green','Black','Blue','Red')
+        ,text = ~paste("Location: ", Location
+                       ,'\n Date: ', Date 
+                       ,'\n Total victims : ', `Total victims` 
+                       ,'\n Race: ', Race)) %>% 
+    layout(title = "Mass Shootings in US with year and state"
+           , xaxis = list(title = "Years")
+           , yaxis = list(title = "States"))
+```
+
+## Analysis on State with respect to Race and Age
+
+### State with Race
+California has the highest number of White shooters and Florida has the highest number of Black shooters
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`State`
+        ,color =~`Race`) %>% 
+  layout(title = "Total victims by State with respect to Race"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "State")
+         , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+
+### State with Age
+9 Shooters in California were in their 40's and 5 Shooters in Texas are in thier 30's. Washington State have 6 shooters in their 20's.
+
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`State`
+        ,color =~`NewAge`) %>% 
+  layout(title = "Total incidents by State with respect to Age"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "State")
+         , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+
+## State analysis with respect to Cause and Target
+
+### State with Cause
+California has the Highest number of Psychos and terrorist shooters. 6 psychos in Georgia and 6 terrorist attacks in Florida
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`State`
+        ,color =~`Cause`) %>% 
+  layout(title = "Total incidents by State with respect to Cause"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "State")
+         , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+
+### State with Targets
+Schools and Family/girlfriends(At the time of shooting) were one of the top targets for shooters in California.
+This may explain the mental health issues. 7 shooters in Georgia target people such as their Family, Girlfriend, coworkers at the time of shooting.
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`State`
+        ,color =~`Target`) %>% 
+  layout(title = "Total incidents by State with respect to Target"
+         , showlegend = F
+         , barmode = 'stack'
+         , xaxis = list(title = "State")
+	, hovermode = 'compare')
+```
+
+#Analysis on Cause
+
+## Incidents by Causes
+Terrorism, Anger and Psycho were the main causes of Shooting.
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~Cause) %>% 
+layout(title = "Number of incidents by Cause"
+         , xaxis = list(title = "Cause"))
+```
+
+## Total victims by Causes
+```{r}
+plot_ly(data = Crime[,.('Total victims'= sum(`Total victims`)),by=.(`Cause`)]
+        ,type = 'bar'
+        ,x = ~`Cause`
+        ,y = ~`Total victims`) %>% 
+layout(title = "Total victims by Cause"
+         , barmode = 'stack'
+         , xaxis = list(title = "Cause")
+         , yaxis = list(title = "Victims")
+         , hovermode = 'compare')
+```
+
+## Incidents by Targets
+Random Targets, Schools, families and people from the past were the main targets of shooting.
+
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~Target)%>% 
+  layout(title = "Number of incidents by Target"
+         , xaxis = list(title = "Target"))
+```
+
+## Total victims by Targets
+```{r}
+plot_ly(data = Crime[,.('Total victims'= sum(`Total victims`)),by=.(`Target`)]
+        ,type = 'bar'
+        ,x = ~`Target`
+        ,y = ~`Total victims`) %>% 
+layout(title = "Total victims by Target"
+        , barmode = 'stack'
+         , xaxis = list(title = "Target")
+         , yaxis = list(title = "Victims")
+         , hovermode = 'compare')
+```
+
+## Cause by Age
+Most Psychos were in their 40's and most terrorists were in their 20's
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`Cause`
+        ,color =~`NewAge`) %>% 
+  layout(title = "Total incidents by Cause with respect to Age"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "Cause")
+	 , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+
+## Cause by Gender
+Females are mostly Terrorists or Psychos
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`Cause`
+        ,color =~`Gender`) %>% 
+  layout(title = "Total incidents by Cause with respect to Gender"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "Cause")
+	 , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+
+## Target by Age
+Highlights:
+21 Shooters who were teenagers targeted Schools, 
+16 Shooters in their 40's targeted Families/Girlfriends and coworkers at the time of shooting. and 9 shooters in their 40's targetted people from the past.
+```{r, message=FALSE, warning=FALSE}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`Target`
+        ,color =~`NewAge`) %>% 
+  layout(title = "Total incidents by Target with respect to Age"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "Target")
+	 , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+
+## Target by Gender
+Females mostly target schools and family
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`Target`
+        ,color =~`Gender`) %>% 
+  layout(title = "Total incidents by Target with respect to Gender"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "Target")
+	 , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
+
+#Other Analysis
+
+## Date Analysis
+
+### Frequency in Year
+Based on the histogram we can see that the number of mass shootings is on the rise since 2012
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~Year) %>% 
+layout(title = "Number of incidents by Year"
+         , xaxis = list(title = "Year")) 
+```
+
+### Victims in Year
+```{r}
+plot_ly(data = Crime[,.('Total victims'= sum(`Total victims`)),by=.(Year)]
+        ,type = 'bar'
+        ,x = ~Year
+	,y = ~`Total victims` ) %>% 
+layout(title = "Number of victims by Year"
+         , barmode = 'stack'
+         , xaxis = list(title = "Year")
+	,yaxis= list(title = "Total victims"))
+```
+
+### Frequency in Month	
+Most incidents happen during Spring season.
+```{r}
+plot_ly(data = Crime[,,by:=(Month)]
+        ,type = 'histogram'
+        ,x = ~Month)%>% 
+  layout(title = "Number of incidents by Month"
+         , xaxis = list(title = "Month")) 
+```
+
+### Frequency in Day 
+For the superstitious people,  4TH day of the month is the safest and 7th is the worst day of the month
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~Day)%>% 
+  layout(title = "Number of incidents by Day"
+         , xaxis = list(title = "Day")) 
+```         
+
+## Frequency in Gender
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~Gender) %>% 
+layout(title = "Number of incidents by Gender"
+         , xaxis = list(title = "Gender"))
+```
+
+## Frequency in Mental Health Issues
+There are 106 shooters with mental Health issues, there are 93 shooters with no mental health issues.
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`Mental Health Issues`)%>% 
+  layout(title = "Number of incidents by Mental Health"
+         , xaxis = list(title = "Mental Health Issues"))
+```
+
+## Age with mental health issues
+Most shooters between the age of 10-40 have Mental Health Issues.
+```{r}
+plot_ly(data = Crime
+        ,type = 'histogram'
+        ,x = ~`NewAge`
+        ,color =~`Mental Health Issues`) %>% 
+  layout(title = "Total Incidents by Age with respect to Mental Health Issue"
+         , showlegend = T
+         , barmode = 'stack'
+         , xaxis = list(title = "Age")
+         , legend = list(x = 1, y = 1)
+         , hovermode = 'compare')
+```
