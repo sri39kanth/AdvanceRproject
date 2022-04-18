@@ -1,7 +1,7 @@
 ---
-title: 'Analysing US Mass Shootings and Mental Health Issue Associated to it'
-author: ''
-date: ''
+title: 'Analysis of US Mass Shootings and Mental Health Issue Associated to it'
+author: 'Sai Poojith Reddy Maryada and Srikanth Reddy Pulagam'
+date: '3/25/2022'
 output:
   html_document:
     number_sections: true
@@ -727,3 +727,7 @@ plot_ly(data = Crime
          , legend = list(x = 1, y = 1)
          , hovermode = 'compare')
 ```
+
+
+## Github link for the document 
+Here is the github link for the code : https://github.com/sri39kanth/AdvanceRproject
